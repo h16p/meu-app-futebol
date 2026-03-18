@@ -5,13 +5,13 @@ st.set_page_config(page_title="Scout H2H 2026", page_icon="📈", layout="center
 
 st.title("🎯 Scout de Passes H2H - 2026")
 
-# 1. Dicionário de Times Atualizado para a Temporada 2026
+# 1. Dicionário de Times REVISADO para a Série A 2026
 times_ligas = {
     "Brasileirão Série A 2026": [
-        "Athletico-PR", "Atlético-GO", "Atlético-MG", "Bahia", "Botafogo", 
-        "Ceará", "Corinthians", "Criciúma", "Cruzeiro", "Cuiabá", 
-        "Flamengo", "Fluminense", "Fortaleza", "Grêmio", "Internacional", 
-        "Juventude", "Palmeiras", "Red Bull Bragantino", "Santos", "São Paulo"
+        "América-MG", "Athletico-PR", "Atlético-MG", "Bahia", "Botafogo", 
+        "Corinthians", "Cruzeiro", "Flamengo", "Fluminense", "Fortaleza", 
+        "Grêmio", "Internacional", "Juventude", "Mirassol", "Palmeiras", 
+        "Red Bull Bragantino", "Santos", "São Paulo", "Sport", "Vasco"
     ],
     "Premier League 25/26": [
         "Arsenal", "Aston Villa", "Bournemouth", "Brentford", "Brighton", 
@@ -41,7 +41,6 @@ with col_m:
 
 with col_v:
     st.markdown("### 🚌 Visitante")
-    # Define o segundo time da lista como padrão para não repetir o mandante
     time_v = st.selectbox("Time Fora", lista_de_times, index=1, key="tv")
     v1 = st.number_input("J1 Fora", min_value=0, step=1, key="v1")
     v2 = st.number_input("J2 Fora", min_value=0, step=1, key="v2")
@@ -70,9 +69,11 @@ if media_m > 0 or media_v > 0:
     total_esperado = media_m + media_v
     st.success(f"💡 **Expectativa Total de Passes:** {total_esperado:.1f}")
     
-    # Alerta de mercado
-    if total_esperado > 900:
-        st.warning("⚠️ Jogo com tendência de alta posse de bola!")
+    # Dica visual rápida para o trading
+    if total_esperado >= 850:
+        st.warning("🔥 Tendência de OVER passes (Times de Posse)")
+    elif total_esperado > 0 and total_esperado < 700:
+        st.info("📉 Tendência de UNDER passes (Jogo truncado)")
 else:
     st.info("Preencha os dados dos últimos jogos para calcular.")
 
