@@ -1,40 +1,66 @@
 import streamlit as st
 
-# Configuração para celular
-st.set_page_config(page_title="Scout Individual", page_icon="📈", layout="centered")
+# Configuração para ficar perfeito no celular
+st.set_page_config(page_title="Scout H2H Passes", page_icon="📈", layout="centered")
 
-st.title("🎯 Scout de Passes L5")
-st.subheader("Análise por Time")
+st.title("🎯 Scout de Passes H2H")
 
-# --- ENTRADA DE DADOS ---
-st.markdown("### 🏟️ Alimentar Dados")
-nome_time = st.text_input("Nome do Time", placeholder="Ex: Arsenal")
-
-c_inp1, c_inp2 = st.columns(2)
-j1 = c_inp1.number_input("J1 (Mais recente)", min_value=0, step=1, value=0)
-j2 = c_inp2.number_input("J2", min_value=0, step=1, value=0)
-j3 = c_inp1.number_input("J3", min_value=0, step=1, value=0)
-j4 = c_inp2.number_input("J4", min_value=0, step=1, value=0)
-j5 = c_inp1.number_input("J5", min_value=0, step=1, value=0)
-
-# --- CÁLCULOS ---
-lista_jogos = [j1, j2, j3, j4, j5]
-jogos_validos = [v for v in lista_jogos if v > 0]
+# 1. Seleção da Liga (Centralizado)
+liga = st.selectbox("Selecione a Liga", ["Brasileirão Série A", "Premier League"])
 
 st.divider()
 
-# --- RESULTADOS ---
-if len(jogos_validos) > 0:
-    st.markdown(f"### 📊 Resultado: {nome_time if nome_time else 'Time'}")
-    media = sum(jogos_validos) / len(jogos_validos)
-    
-    res1, res2 = st.columns(2)
-    res1.metric("Média Real", f"{media:.1f}")
-    res2.metric("Total Passes", sum(jogos_validos))
-    
-    st.info(f"💡 **Linha Sugerida:** {media:.0f} passes.")
-else:
-    st.info("Aguardando preenchimento dos números...")
+# 2. Entrada de Dados - Mandante vs Visitante (Lado a Lado)
+col_m, col_v = st.columns(2)
 
+with col_m:
+    st.markdown("### 🏠 Mandante")
+    time_m = st.text_input("Time Casa", placeholder="Ex: Flamengo", key="tm")
+    m1 = st.number_input("J1 Casa", min_value=0, step=1, key="m1")
+    m2 = st.number_input("J2 Casa", min_value=0, step=1, key="m2")
+    m3 = st.number_input("J3 Casa", min_value=0, step=1, key="m3")
+    m4 = st.number_input("J4 Casa", min_value=0, step=1, key="m4")
+    m5 = st.number_input("J5 Casa", min_value=0, step=1, key="m5")
+
+with col_v:
+    st.markdown("### 🚌 Visitante")
+    time_v = st.text_input("Time Fora", placeholder="Ex: Arsenal", key="tv")
+    v1 = st.number_input("J1 Fora", min_value=0, step=1, key="v1")
+    v2 = st.number_input("J2 Fora", min_value=0, step=1, key="v2")
+    v3 = st.number_input("J3 Fora", min_value=0, step=1, key="v3")
+    v4 = st.number_input("J4 Fora", min_value=0, step=1, key="v4")
+    v5 = st.number_input("J5 Fora", min_value=0, step=1, key="v5")
+
+# --- FUNÇÃO DE CÁLCULO ---
+def calcular_stats(jogos):
+    validos = [j for j in jogos if j > 0]
+    if not validos:
+        return 0, 0
+    media = sum(validos) / len(validos)
+    total = sum(validos)
+    return media, total
+
+media_m, total_m = calcular_stats([m1, m2, m3, m4, m5])
+media_v, total_v = calcular_stats([v1, v2, v3, v4, v5])
+
+st.divider()
+
+# --- EXIBIÇÃO DOS RESULTADOS ---
+if media_m > 0 or media_v > 0:
+    st.subheader(f"📊 {time_m if time_m else 'Casa'} vs {time_v if time_v else 'Fora'}")
+    st.caption(f"Competição: {liga}")
+    
+    res_m, res_v = st.columns(2)
+    res_m.metric(f"Média {time_m}", f"{media_m:.1f}")
+    res_v.metric(f"Média {time_v}", f"{media_v:.1f}")
+    
+    st.success(f"💡 **Expectativa de Passes Totais:** {media_m + media_v:.1f}")
+    
+    # Pequeno resumo dos totais
+    st.write(f"Total acumulado L5 (Casa): **{total_m}** | (Fora): **{total_v}**")
+else:
+    st.info("Insira os números dos últimos jogos para calcular as médias.")
+
+# Botão de Reset
 if st.button("🔄 Limpar Tudo"):
     st.rerun()
