@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import poisson
 
-st.set_page_config(page_title="H2H Predictor - Helton", layout="centered")
-st.title("🎯 Analisador Full Market - Helton Silva")
+st.set_page_config(page_title="H2H Pro - Helton", layout="centered")
+st.title("🎯 Analisador Individual e H2H - Helton Silva")
 
 ligas_url = {
     'Premier League (Ing)': 'https://www.football-data.co.uk/mmz4281/2324/E0.csv',
@@ -21,15 +21,11 @@ liga_sel = st.selectbox("1. Escolha a Liga", list(ligas_url.keys()))
 @st.cache_data
 def carregar_dados(url):
     df = pd.read_csv(url)
-    # DICIONÁRIO EXPANDIDO: HS/AS (Chutes), HST/AST (Chutes a gol)
     dic = {
-        'HomeTeam':'M', 'AwayTeam':'V', 
-        'FTHG':'G_M', 'FTAG':'G_V', 
-        'HC':'C_M', 'AC':'C_V', 
-        'HF':'FT_M', 'AF':'FT_V', 
-        'HY':'AM_M', 'AY':'AM_V',
-        'HS':'CH_M', 'AS':'CH_V',    # Finalizações Totais
-        'HST':'CG_M', 'AST':'CG_V'   # Chutes a Gol
+        'HomeTeam':'M', 'AwayTeam':'V', 'FTHG':'G_M', 'FTAG':'G_V', 
+        'HC':'C_M', 'AC':'C_V', 'HF':'FT_M', 'AF':'FT_V', 
+        'HY':'AM_M', 'AY':'AM_V', 'HS':'CH_M', 'AS':'CH_V', 
+        'HST':'CG_M', 'AST':'CG_V'
     }
     return df.rename(columns=dic)
 
@@ -38,58 +34,58 @@ lista_times = sorted(df['M'].unique())
 
 st.subheader("2. Próximo Confronto")
 c1, c2 = st.columns(2)
-time_m = c1.selectbox("Mandante (Casa)", lista_times, index=0)
-time_v = c2.selectbox("Visitante (Fora)", lista_times, index=1)
+t_m = c1.selectbox("Mandante (Casa)", lista_times, index=0)
+t_v = c2.selectbox("Visitante (Fora)", lista_times, index=1)
 
-# --- LÓGICA DE CÁLCULO ---
-df_m = df[df['M'] == time_m]
-df_v = df[df['V'] == time_v]
+# --- CÁLCULOS INDIVIDUAIS ---
+m_casa = df[df['M'] == t_m]
+v_fora = df[df['V'] == t_v]
 
-# Expectativas
-exp_gols = df_m['G_M'].mean() + df_v['G_V'].mean()
-exp_cants = df_m['C_M'].mean() + df_v['C_V'].mean()
-exp_chutes = df_m['CH_M'].mean() + df_v['CH_V'].mean()
-exp_cgol = df_m['CG_M'].mean() + df_v['CG_V'].mean()
+# Função para facilitar a exibição
+def mostrar_stats(titulo, dados, sufixo_m, sufixo_v):
+    st.markdown(f"### {titulo}")
+    col1, col2, col3 = st.columns(3)
+    val_m = dados[sufixo_m].mean()
+    val_v = dados[sufixo_v].mean()
+    col1.metric(f"{t_m} (Casa)", f"{val_m:.2f}")
+    col2.metric(f"{t_v} (Fora)", f"{val_v:.2f}")
+    col3.metric("Total Confronto", f"{(val_m + val_v):.2f}", delta="H2H", delta_color="off")
 
 st.divider()
 
-# --- ABAS DE MERCADOS ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["⚽ Gols/Cantos", "🚀 Finalizações", "🤝 Ambas", "🏆 1x2", "🟨 Disciplina"])
+# --- ABAS DETALHADAS ---
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Gols e Cantos", "🚀 Chutes/Finalizações", "🏆 Probabilidades 1x2", "🟨 Disciplina"])
 
 with tab1:
-    st.subheader("Over 1.5 Gols & 8.5 Cantos")
-    p_g = (1 - poisson.cdf(1, exp_gols)) * 100
-    p_c = (1 - poisson.cdf(8, exp_cants)) * 100
-    st.metric("Prob. Gols", f"{p_g:.1f}%", f"Justa: {100/p_g:.2f}")
-    st.metric("Prob. Cantos", f"{p_c:.1f}%", f"Justa: {100/p_c:.2f}")
+    mostrar_stats("⚽ Média de Gols", df, 'G_M', 'G_V')
+    mostrar_stats("⛳ Média de Cantos", df, 'C_M', 'C_V')
 
 with tab2:
-    st.subheader("Mercado de Chutes")
-    col_ch1, col_ch2 = st.columns(2)
-    col_ch1.metric("Finalizações (Totais)", f"{exp_chutes:.2f}")
-    col_ch2.metric("Chutes a Gol (Alvo)", f"{exp_cgol:.2f}")
+    mostrar_stats("🔥 Finalizações Totais", df, 'CH_M', 'CH_V')
+    mostrar_stats("🎯 Chutes ao Gol", df, 'CG_M', 'CG_V')
     
-    st.info("Estas médias somam o poder de ataque do Mandante (Casa) com o do Visitante (Fora).")
-    
-    # Pequeno gráfico comparativo
-    fig, ax = plt.subplots(figsize=(7, 3))
-    ax.barh(['Chutes a Gol', 'Finalizações Totais'], [exp_cgol, exp_chutes], color=['#e74c3c', '#f39c12'])
+    # Gráfico Comparativo de Chutes
+    fig, ax = plt.subplots(figsize=(8, 4))
+    times = [t_m, t_v]
+    chutes = [m_casa['CH_M'].mean(), v_fora['CH_V'].mean()]
+    ax.bar(times, chutes, color=['#3498db', '#e74c3c'])
+    ax.set_title("Poder de Finalização (Mandante Casa x Visitante Fora)")
     st.pyplot(fig)
 
 with tab3:
-    st.subheader("Ambas Marcam")
-    p_m = (1 - poisson.pmf(0, df_m['G_M'].mean()))
-    p_v = (1 - poisson.pmf(0, df_v['G_V'].mean()))
-    prob_btts = (p_m * p_v) * 100
-    st.metric("Probabilidade BTTS Sim", f"{prob_btts:.1f}%", f"Justa: {100/prob_btts:.2f}")
+    st.subheader("Análise de Valor 1x2")
+    m_sim = np.random.poisson(m_casa['G_M'].mean(), 10000)
+    v_sim = np.random.poisson(v_fora['G_V'].mean(), 10000)
+    
+    p_m = (m_sim > v_sim).mean() * 100
+    p_e = (m_sim == v_sim).mean() * 100
+    p_v = (m_sim < v_sim).mean() * 100
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric(f"Vitória {t_m}", f"{p_m:.1f}%", f"Odd: {100/p_m:.2f}")
+    c2.metric("Empate", f"{p_e:.1f}%", f"Odd: {100/p_e:.2f}")
+    c3.metric(f"Vitória {t_v}", f"{p_v:.1f}%", f"Odd: {100/p_v:.2f}")
 
 with tab4:
-    st.subheader("Probabilidades 1x2")
-    m_sim = np.random.poisson(df_m['G_M'].mean(), 10000)
-    v_sim = np.random.poisson(df_v['G_V'].mean(), 10000)
-    st.write(f"Casa: **{(m_sim > v_sim).mean()*100:.1f}%** | Empate: **{(m_sim == v_sim).mean()*100:.1f}%** | Fora: **{(m_sim < v_sim).mean()*100:.1f}%**")
-
-with tab5:
-    st.subheader("Faltas e Cartões")
-    st.write(f"Média de Faltas: **{df_m['FT_M'].mean() + df_v['FT_V'].mean():.2f}**")
-    st.write(f"Média de Cartões: **{df_m['AM_M'].mean() + df_v['AM_V'].mean():.2f}**")
+    mostrar_stats("🟨 Cartões Amarelos", df, 'AM_M', 'AM_V')
+    mostrar_stats("🛑 Faltas Cometidas", df, 'FT_M', 'FT_V')
