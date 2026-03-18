@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import poisson
 
-st.set_page_config(page_title="H2H Pro - Helton", layout="centered")
+st.set_page_config(page_title="Futebol", page_icon="⚽", layout="centered")
 st.title("🎯 Analisador Pro - Helton Silva")
 
 # 1. LINKS DAS LIGAS (Ligas europeias 23/24 e Brasil 24/25)
