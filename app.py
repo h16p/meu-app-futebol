@@ -21,7 +21,16 @@ liga_sel = st.selectbox("1. Escolha a Liga", list(ligas_url.keys()))
 @st.cache_data
 def carregar_dados(url):
     df = pd.read_csv(url)
-    dic = {'HomeTeam':'M', 'AwayTeam':'V', 'FTHG':'G_M', 'FTAG':'G_V', 'HC':'C_M', 'AC':'C_V', 'HF':'FT_M', 'AF':'FT_V', 'HY':'AM_M', 'AY':'AM_V'}
+    # DICIONÁRIO EXPANDIDO: HS/AS (Chutes), HST/AST (Chutes a gol)
+    dic = {
+        'HomeTeam':'M', 'AwayTeam':'V', 
+        'FTHG':'G_M', 'FTAG':'G_V', 
+        'HC':'C_M', 'AC':'C_V', 
+        'HF':'FT_M', 'AF':'FT_V', 
+        'HY':'AM_M', 'AY':'AM_V',
+        'HS':'CH_M', 'AS':'CH_V',    # Finalizações Totais
+        'HST':'CG_M', 'AST':'CG_V'   # Chutes a Gol
+    }
     return df.rename(columns=dic)
 
 df = carregar_dados(ligas_url[liga_sel])
@@ -36,47 +45,51 @@ time_v = c2.selectbox("Visitante (Fora)", lista_times, index=1)
 df_m = df[df['M'] == time_m]
 df_v = df[df['V'] == time_v]
 
-exp_g_m = df_m['G_M'].mean()
-exp_g_v = df_v['G_V'].mean()
-exp_c_m = df_m['C_M'].mean()
-exp_c_v = df_v['C_V'].mean()
+# Expectativas
+exp_gols = df_m['G_M'].mean() + df_v['G_V'].mean()
+exp_cants = df_m['C_M'].mean() + df_v['C_V'].mean()
+exp_chutes = df_m['CH_M'].mean() + df_v['CH_V'].mean()
+exp_cgol = df_m['CG_M'].mean() + df_v['CG_V'].mean()
 
 st.divider()
 
 # --- ABAS DE MERCADOS ---
-tab1, tab2, tab3, tab4 = st.tabs(["⚽ Gols/Cantos", "🤝 Ambas Marcam", "🏆 Resultado (1x2)", "🟨 Disciplina"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["⚽ Gols/Cantos", "🚀 Finalizações", "🤝 Ambas", "🏆 1x2", "🟨 Disciplina"])
 
 with tab1:
     st.subheader("Over 1.5 Gols & 8.5 Cantos")
-    p_g = (1 - poisson.cdf(1, exp_g_m + exp_g_v)) * 100
-    p_c = (1 - poisson.cdf(8, exp_c_m + exp_c_v)) * 100
+    p_g = (1 - poisson.cdf(1, exp_gols)) * 100
+    p_c = (1 - poisson.cdf(8, exp_cants)) * 100
     st.metric("Prob. Gols", f"{p_g:.1f}%", f"Justa: {100/p_g:.2f}")
     st.metric("Prob. Cantos", f"{p_c:.1f}%", f"Justa: {100/p_c:.2f}")
 
 with tab2:
-    st.subheader("Mercado de Ambas Marcam")
-    prob_m_marca = (1 - poisson.pmf(0, exp_g_m))
-    prob_v_marca = (1 - poisson.pmf(0, exp_g_v))
-    prob_btts = (prob_m_marca * prob_v_marca) * 100
-    st.metric("Probabilidade BTTS Sim", f"{prob_btts:.1f}%", f"Odd Justa: {100/prob_btts:.2f}")
+    st.subheader("Mercado de Chutes")
+    col_ch1, col_ch2 = st.columns(2)
+    col_ch1.metric("Finalizações (Totais)", f"{exp_chutes:.2f}")
+    col_ch2.metric("Chutes a Gol (Alvo)", f"{exp_cgol:.2f}")
+    
+    st.info("Estas médias somam o poder de ataque do Mandante (Casa) com o do Visitante (Fora).")
+    
+    # Pequeno gráfico comparativo
+    fig, ax = plt.subplots(figsize=(7, 3))
+    ax.barh(['Chutes a Gol', 'Finalizações Totais'], [exp_cgol, exp_chutes], color=['#e74c3c', '#f39c12'])
+    st.pyplot(fig)
 
 with tab3:
-    st.subheader("Probabilidades de Resultado")
-    # Simplificação de Poisson para 1x2
-    m_goals = np.random.poisson(exp_g_m, 10000)
-    v_goals = np.random.poisson(exp_g_v, 10000)
-    vitoria_m = (m_goals > v_goals).mean() * 100
-    empate = (m_goals == v_goals).mean() * 100
-    vitoria_v = (m_goals < v_goals).mean() * 100
-    
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Casa", f"{vitoria_m:.1f}%", f"@{100/vitoria_m:.2f}")
-    col2.metric("Empate", f"{empate:.1f}%", f"@{100/empate:.2f}")
-    col3.metric("Fora", f"{vitoria_v:.1f}%", f"@{100/vitoria_v:.2f}")
+    st.subheader("Ambas Marcam")
+    p_m = (1 - poisson.pmf(0, df_m['G_M'].mean()))
+    p_v = (1 - poisson.pmf(0, df_v['G_V'].mean()))
+    prob_btts = (p_m * p_v) * 100
+    st.metric("Probabilidade BTTS Sim", f"{prob_btts:.1f}%", f"Justa: {100/prob_btts:.2f}")
 
 with tab4:
-    st.subheader("Faltas e Cartões (Médias)")
-    m_faltas = df_m['FT_M'].mean() + df_v['FT_V'].mean()
-    m_cartoes = df_m['AM_M'].mean() + df_v['AM_V'].mean()
-    st.write(f"Expectativa de Faltas no Jogo: **{m_faltas:.2f}**")
-    st.write(f"Expectativa de Cartões no Jogo: **{m_cartoes:.2f}**")
+    st.subheader("Probabilidades 1x2")
+    m_sim = np.random.poisson(df_m['G_M'].mean(), 10000)
+    v_sim = np.random.poisson(df_v['G_V'].mean(), 10000)
+    st.write(f"Casa: **{(m_sim > v_sim).mean()*100:.1f}%** | Empate: **{(m_sim == v_sim).mean()*100:.1f}%** | Fora: **{(m_sim < v_sim).mean()*100:.1f}%**")
+
+with tab5:
+    st.subheader("Faltas e Cartões")
+    st.write(f"Média de Faltas: **{df_m['FT_M'].mean() + df_v['FT_V'].mean():.2f}**")
+    st.write(f"Média de Cartões: **{df_m['AM_M'].mean() + df_v['AM_V'].mean():.2f}**")
