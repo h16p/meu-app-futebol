@@ -1,11 +1,11 @@
 import streamlit as st
 
-# 1. Configuração da página - DEVE SER A PRIMEIRA LINHA
-st.set_page_config(page_title="Scout H2H Passes", page_icon="📈", layout="wide")
+# 1. Configuração da página
+st.set_page_config(page_title="Scout H2H Cruzado", page_icon="📈", layout="wide")
 
-st.title("🎯 Scout de Passes H2H")
+st.title("🎯 Scout de Passes: Média Cruzada")
 
-# 2. Suas Listas Oficiais (Brasileirão e Premier League)
+# 2. Listas Oficiais
 times_ligas = {
     "Brasileirão Série A": [
         "Athletico-PR", "Atlético-MG", "Bahia", "Botafogo", "Bragantino", 
@@ -31,13 +31,13 @@ def criar_bloco_scout(titulo, prefixo):
     st.subheader(titulo)
     time_selecionado = st.selectbox(f"Time", lista_de_times, key=f"sel_{prefixo}")
     
-    st.markdown("---")
     h1, h2, h3 = st.columns(3)
-    h1.caption("PRO")
-    h2.caption("CONTRA")
+    h1.caption("FAZ (PRO)")
+    h2.caption("LEVA (CONTRA)")
     h3.caption("TOTAL")
 
-    somas_jogos = []
+    lista_pro = []
+    lista_contra = []
 
     for i in range(1, 6):
         c1, c2, c3 = st.columns(3)
@@ -50,37 +50,51 @@ def criar_bloco_scout(titulo, prefixo):
         with c3:
             st.markdown(f"**{total_linha}**")
             
-        if total_linha > 0:
-            somas_jogos.append(total_linha)
+        if p > 0: lista_pro.append(p)
+        if c > 0: lista_contra.append(c)
     
-    media_time = sum(somas_jogos) / len(somas_jogos) if somas_jogos else 0
-    return time_selecionado, media_time
+    media_pro = sum(lista_pro) / len(lista_pro) if lista_pro else 0
+    media_contra = sum(lista_contra) / len(lista_contra) if lista_contra else 0
+    
+    return time_selecionado, media_pro, media_contra
 
-# --- EXIBIÇÃO LADO A LADO ---
+# --- ENTRADA DE DADOS ---
 col_m, col_v = st.columns(2)
 
 with col_m:
-    time_m, media_m = criar_bloco_scout("🏠 MANDANTE", "m")
+    tm, m_pro, m_contra = criar_bloco_scout("🏠 MANDANTE", "m")
 
 with col_v:
-    time_v, media_v = criar_bloco_scout("🚌 VISITANTE", "v")
+    tv, v_pro, v_contra = criar_bloco_scout("🚌 VISITANTE", "v")
 
 st.divider()
 
-# --- RESULTADO E EXPECTATIVA DO CONFRONTO ---
-if media_m > 0 or media_v > 0:
-    st.markdown(f"### 📊 Análise: {time_m} vs {time_v}")
+# --- CÁLCULO DA MÉDIA CRUZADA ---
+if (m_pro > 0 and v_contra > 0) or (v_pro > 0 and m_contra > 0):
+    st.subheader(f"📊 Projeção do Confronto: {tm} vs {tv}")
     
-    r1, r2, r3 = st.columns(3)
-    r1.metric(f"Média {time_m}", f"{media_m:.1f}")
-    r2.metric(f"Média {time_v}", f"{media_v:.1f}")
+    # 1. Quanto o Mandante deve fazer (Média do que ele faz com o que o visitante leva)
+    proj_faz_m = (m_pro + v_contra) / 2
     
-    expectativa_total = media_m + media_v
-    r3.metric("Expectativa Jogo", f"{expectativa_total:.1f}")
+    # 2. Quanto o Visitante deve fazer (Média do que ele faz com o que o mandante leva)
+    proj_faz_v = (v_pro + m_contra) / 2
     
-    st.success(f"💡 **Linha de Trabalho Sugerida:** {expectativa_total:.0f} passes totais.")
+    expectativa_total = proj_faz_m + proj_faz_v
+
+    # Exibição das métricas
+    c1, c2, c3 = st.columns(3)
+    c1.metric(f"Projeção {tm} (Faz)", f"{proj_faz_m:.1f}")
+    c2.metric(f"Projeção {tv} (Faz)", f"{proj_faz_v:.1f}")
+    c3.metric("Expectativa do Jogo", f"{expectativa_total:.1f}")
+
+    st.success(f"💡 **Análise Final:** A tendência é que o jogo tenha aproximadamente **{expectativa_total:.0f}** passes.")
+    
+    # Tabela de conferência rápida
+    with st.expander("Ver médias individuais"):
+        st.write(f"**{tm}:** Faz {m_pro:.1f} | Leva {m_contra:.1f}")
+        st.write(f"**{tv}:** Faz {v_pro:.1f} | Leva {v_contra:.1f}")
 else:
-    st.info("Preencha os dados de PRO e CONTRA para calcular.")
+    st.info("Preencha os dados de passes para gerar a projeção cruzada.")
 
 if st.button("🔄 Limpar Tudo"):
     st.rerun()
