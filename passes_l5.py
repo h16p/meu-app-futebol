@@ -1,11 +1,11 @@
 import streamlit as st
 
 # Configuração para celular
-st.set_page_config(page_title="Scout H2H 2026", page_icon="📈", layout="centered")
+st.set_page_config(page_title="Scout H2H Passes", page_icon="📈", layout="centered")
 
 st.title("🎯 Scout de Passes H2H")
 
-# 1. Dicionário de Times EXATAMENTE como você passou
+# 1. Dicionários com as LISTAS EXATAS que você passou
 times_ligas = {
     "Brasileirão Série A": [
         "Athletico-PR", "Atlético-MG", "Bahia", "Botafogo", "Bragantino", 
@@ -15,9 +15,9 @@ times_ligas = {
     ],
     "Premier League": [
         "Arsenal", "Aston Villa", "Bournemouth", "Brentford", "Brighton", 
-        "Chelsea", "Crystal Palace", "Everton", "Fulham", "Ipswich", 
-        "Leicester", "Liverpool", "Man City", "Man United", "Newcastle", 
-        "Nottm Forest", "Southampton", "Tottenham", "West Ham", "Wolves"
+        "Burnley", "Chelsea", "Crystal Palace", "Everton", "Forest", 
+        "Fulham", "Leeds", "Liverpool", "Manchester City", "Manchester United", 
+        "Newcastle", "Sunderland", "Tottenham", "West Ham", "Wolverhampton"
     ]
 }
 
@@ -41,8 +41,8 @@ with col_m:
 
 with col_v:
     st.markdown("### 🚌 Visitante")
-    # Define o segundo time da lista como padrão para o visitante
-    time_v = st.selectbox("Time Fora", lista_de_times, index=1, key="tv")
+    # Tenta colocar o segundo time como padrão para não repetir
+    time_v = st.selectbox("Time Fora", lista_de_times, index=1 if len(lista_de_times)>1 else 0, key="tv")
     v1 = st.number_input("J1 Fora", min_value=0, step=1, key="v1")
     v2 = st.number_input("J2 Fora", min_value=0, step=1, key="v2")
     v3 = st.number_input("J3 Fora", min_value=0, step=1, key="v3")
@@ -70,11 +70,11 @@ if media_m > 0 or media_v > 0:
     total_esperado = media_m + media_v
     st.success(f"💡 **Expectativa Total de Passes:** {total_esperado:.1f}")
     
-    # Alerta rápido para análise
-    if total_esperado >= 850:
-        st.warning("🔥 Tendência de OVER (Posse Alta)")
-    elif 0 < total_esperado < 720:
-        st.info("📉 Tendência de UNDER (Jogo Truncado)")
+    # Indicadores rápidos para sua decisão
+    if total_esperado >= 880:
+        st.warning("🔥 Alta Posse (Ideal para Over)")
+    elif 0 < total_esperado < 750:
+        st.info("📉 Jogo Truncado (Ideal para Under)")
 else:
     st.info("Insira os números dos jogos para calcular.")
 
