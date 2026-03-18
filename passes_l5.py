@@ -1,11 +1,11 @@
 import streamlit as st
 
-# Configuração para celular
-st.set_page_config(page_title="Scout H2H Passes", page_icon="📈", layout="centered")
+# Configuração para celular (Layout Wide para caber as colunas)
+st.set_page_config(page_title="Scout H2H Profissional", page_icon="📈", layout="wide")
 
-st.title("🎯 Scout de Passes H2H")
+st.title("🎯 Scout de Passes Detalhado")
 
-# 1. Dicionários com as LISTAS EXATAS que você passou
+# 1. Dicionários de Times (Suas listas oficiais)
 times_ligas = {
     "Brasileirão Série A": [
         "Athletico-PR", "Atlético-MG", "Bahia", "Botafogo", "Bragantino", 
@@ -21,62 +21,66 @@ times_ligas = {
     ]
 }
 
-# 2. Seleção da Liga
 liga_sel = st.selectbox("1. Selecione a Liga", list(times_ligas.keys()))
 lista_de_times = sorted(times_ligas[liga_sel])
 
 st.divider()
 
-# 3. Entrada de Dados - Mandante vs Visitante
-col_m, col_v = st.columns(2)
+# --- FUNÇÃO PARA CRIAR BLOCO DE JOGOS ---
+def bloco_scout(titulo, chave_prefixo):
+    st.markdown(f"### {titulo}")
+    time = st.selectbox(f"Selecione o {titulo}", lista_de_times, key=f"sel_{chave_prefixo}")
+    
+    st.markdown("---")
+    # Cabeçalho das colunas
+    c1, c2, c3 = st.columns([1, 1, 1])
+    c1.caption("Passes PRO")
+    c2.caption("Passes CONTRA")
+    c3.caption("TOTAL (Auto)")
 
-with col_m:
-    st.markdown("### 🏠 Mandante")
-    time_m = st.selectbox("Time Casa", lista_de_times, key="tm")
-    m1 = st.number_input("J1 Casa", min_value=0, step=1, key="m1")
-    m2 = st.number_input("J2 Casa", min_value=0, step=1, key="m2")
-    m3 = st.number_input("J3 Casa", min_value=0, step=1, key="m3")
-    m4 = st.number_input("J4 Casa", min_value=0, step=1, key="m4")
-    m5 = st.number_input("J5 Casa", min_value=0, step=1, key="m5")
+    totais_jogo = []
+    
+    # Criar 5 linhas de entrada
+    for i in range(1, 6):
+        r1, r2, r3 = st.columns([1, 1, 1])
+        pro = r1.number_input(f"J{i} P", min_value=0, step=1, key=f"{chave_prefixo}_p{i}", label_visibility="collapsed")
+        contra = r2.number_input(f"J{i} C", min_value=0, step=1, key=f"{chave_prefixo}_c{i}", label_visibility="collapsed")
+        
+        # Soma automática
+        soma = pro + contra
+        r3.markdown(f"**{soma}**")
+        
+        if soma > 0:
+            totais_jogo.append(soma)
+            
+    media = sum(totais_jogo) / len(totais_jogo) if totais_jogo else 0
+    return time, media
 
-with col_v:
-    st.markdown("### 🚌 Visitante")
-    # Tenta colocar o segundo time como padrão para não repetir
-    time_v = st.selectbox("Time Fora", lista_de_times, index=1 if len(lista_de_times)>1 else 0, key="tv")
-    v1 = st.number_input("J1 Fora", min_value=0, step=1, key="v1")
-    v2 = st.number_input("J2 Fora", min_value=0, step=1, key="v2")
-    v3 = st.number_input("J3 Fora", min_value=0, step=1, key="v3")
-    v4 = st.number_input("J4 Fora", min_value=0, step=1, key="v4")
-    v5 = st.number_input("J5 Fora", min_value=0, step=1, key="v5")
+# --- LAYOUT PRINCIPAL (MANDANTE E VISITANTE) ---
+col_mandante, col_gap, col_visitante = st.columns([1, 0.1, 1])
 
-# --- FUNÇÃO DE CÁLCULO ---
-def calcular_stats(jogos):
-    validos = [j for j in jogos if j > 0]
-    return sum(validos) / len(validos) if validos else 0
+with col_mandante:
+    time_m, media_m = bloco_scout("🏠 MANDANTE", "m")
 
-media_m = calcular_stats([m1, m2, m3, m4, m5])
-media_v = calcular_stats([v1, v2, v3, v4, v5])
+with col_visitante:
+    time_v, media_v = bloco_scout("🚌 VISITANTE", "v")
 
 st.divider()
 
-# --- RESULTADOS ---
+# --- RESULTADOS FINAIS ---
 if media_m > 0 or media_v > 0:
-    st.subheader(f"📊 {time_m} vs {time_v}")
+    st.subheader(f"📊 Análise: {time_m} vs {time_v}")
     
-    res_m, res_v = st.columns(2)
-    res_m.metric(f"Média {time_m}", f"{media_m:.1f}")
-    res_v.metric(f"Média {time_v}", f"{media_v:.1f}")
+    res1, res2, res3 = st.columns(3)
+    res1.metric(f"Média {time_m}", f"{media_m:.1f}")
+    res2.metric(f"Média {time_v}", f"{media_v:.1f}")
     
-    total_esperado = media_m + media_v
-    st.success(f"💡 **Expectativa Total de Passes:** {total_esperado:.1f}")
+    total_confronto = media_m + media_v
+    res3.metric("Expectativa Jogo", f"{total_confronto:.1f}", delta_color="normal")
     
-    # Indicadores rápidos para sua decisão
-    if total_esperado >= 880:
-        st.warning("🔥 Alta Posse (Ideal para Over)")
-    elif 0 < total_esperado < 750:
-        st.info("📉 Jogo Truncado (Ideal para Under)")
+    st.success(f"💡 **Sugestão de Linha:** O mercado de passes deve girar em torno de **{total_confronto:.0f}**.")
 else:
-    st.info("Insira os números dos jogos para calcular.")
+    st.info("Aguardando preenchimento dos dados (Pro e Contra) para calcular.")
 
 if st.button("🔄 Limpar Tudo"):
     st.rerun()
