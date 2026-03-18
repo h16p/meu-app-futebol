@@ -1,9 +1,9 @@
 import streamlit as st
 
 # 1. Configuração da página
-st.set_page_config(page_title="Scout H2H Cruzado", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Scout H2H Profissional", page_icon="📈", layout="wide")
 
-st.title("🎯 Scout de Passes: Média Cruzada")
+st.title("🎯 Scout de Passes: Média Cruzada + Comparador")
 
 # 2. Listas Oficiais
 times_ligas = {
@@ -71,30 +71,35 @@ st.divider()
 
 # --- CÁLCULO DA MÉDIA CRUZADA ---
 if (m_pro > 0 and v_contra > 0) or (v_pro > 0 and m_contra > 0):
-    st.subheader(f"📊 Projeção do Confronto: {tm} vs {tv}")
+    st.subheader(f"📊 Projeção: {tm} vs {tv}")
     
-    # 1. Quanto o Mandante deve fazer (Média do que ele faz com o que o visitante leva)
     proj_faz_m = (m_pro + v_contra) / 2
-    
-    # 2. Quanto o Visitante deve fazer (Média do que ele faz com o que o mandante leva)
     proj_faz_v = (v_pro + m_contra) / 2
-    
     expectativa_total = proj_faz_m + proj_faz_v
 
-    # Exibição das métricas
     c1, c2, c3 = st.columns(3)
-    c1.metric(f"Projeção {tm} (Faz)", f"{proj_faz_m:.1f}")
-    c2.metric(f"Projeção {tv} (Faz)", f"{proj_faz_v:.1f}")
-    c3.metric("Expectativa do Jogo", f"{expectativa_total:.1f}")
+    c1.metric(f"Projeção {tm}", f"{proj_faz_m:.1f}")
+    c2.metric(f"Projeção {tv}", f"{proj_faz_v:.1f}")
+    c3.metric("Expectativa Jogo", f"{expectativa_total:.1f}")
 
-    st.success(f"💡 **Análise Final:** A tendência é que o jogo tenha aproximadamente **{expectativa_total:.0f}** passes.")
-    
-    # Tabela de conferência rápida
-    with st.expander("Ver médias individuais"):
-        st.write(f"**{tm}:** Faz {m_pro:.1f} | Leva {m_contra:.1f}")
-        st.write(f"**{tv}:** Faz {v_pro:.1f} | Leva {v_contra:.1f}")
+    st.divider()
+
+    # --- COMPARADOR COM A CASA DE APOSTAS ---
+    st.markdown("### 🏦 Comparar com a Casa")
+    linha_casa = st.number_input("Digite a linha da Bet (ex: 850.5)", min_value=0.0, step=0.5)
+
+    if linha_casa > 0:
+        diferenca = expectativa_total - linha_casa
+        
+        if diferenca > 15: # Margem de segurança de 15 passes
+            st.success(f"✅ **VALOR PARA OVER:** Sua projeção é {diferenca:.1f} passes MAIOR que a linha.")
+        elif diferenca < -15:
+            st.error(f"✅ **VALOR PARA UNDER:** Sua projeção é {abs(diferenca):.1f} passes MENOR que a linha.")
+        else:
+            st.warning("⚠️ **LINHA JUSTA:** A diferença é muito pequena para operar com segurança.")
+
 else:
-    st.info("Preencha os dados de passes para gerar a projeção cruzada.")
+    st.info("Insira os dados para gerar a análise.")
 
 if st.button("🔄 Limpar Tudo"):
     st.rerun()
