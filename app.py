@@ -1,12 +1,11 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import poisson
 
-# Configuração com ícone de bola e nome Futebol
+# Configuração visual e ícone
 st.set_page_config(page_title="Futebol", page_icon="⚽", layout="centered")
-st.title("🎯 Analisador Pro - Helton Silva")
+st.title("📊 Painel Estatístico - Helton Silva")
 
 ligas_url = {
     'Premier League (Ing)': 'https://www.football-data.co.uk/mmz4281/2324/E0.csv',
@@ -17,7 +16,7 @@ ligas_url = {
     'Brasileirão A': 'https://www.football-data.co.uk/mmz4281/2425/BRA.csv'
 }
 
-liga_sel = st.selectbox("1. Escolha a Liga", list(ligas_url.keys()))
+liga_sel = st.selectbox("1. Selecione a Liga", list(ligas_url.keys()))
 
 @st.cache_data
 def carregar_dados(url):
@@ -35,7 +34,7 @@ def carregar_dados(url):
 df = carregar_dados(ligas_url[liga_sel])
 
 if df is None:
-    st.warning(f"⚠️ Dados de '{liga_sel}' indisponíveis. Tente uma liga europeia!")
+    st.warning(f"⚠️ Dados de '{liga_sel}' não encontrados. Tente outra liga!")
     st.stop()
 
 lista_times = sorted(df['M'].unique())
@@ -43,59 +42,56 @@ c1, c2 = st.columns(2)
 t_m = c1.selectbox("Mandante (Casa)", lista_times, index=0)
 t_v = c2.selectbox("Visitante (Fora)", lista_times, index=1)
 
-# --- FILTROS ESPECÍFICOS ---
+# Filtros
 m_casa = df[df['M'] == t_m]
 v_fora = df[df['V'] == t_v]
 
 st.divider()
 
-# --- ABAS ---
-tab1, tab2, tab3 = st.tabs(["🎲 Probabilidades", "📊 Médias Individuais", "🚀 Chutes e Disciplina"])
+# --- ABAS SÓ COM NÚMEROS ---
+tab1, tab2, tab3 = st.tabs(["🎯 Probabilidades (Odd Justa)", "📈 Médias Detalhadas", "🚀 Chutes e Faltas"])
 
 with tab1:
-    st.subheader("🎯 Chances de Green")
-    # Cálculos Poisson
+    # Gols e Cantos
     exp_g = m_casa['G_M'].mean() + v_fora['G_V'].mean()
     exp_c = m_casa['C_M'].mean() + v_fora['C_V'].mean()
     
-    prob_g = (1 - poisson.cdf(1, exp_g)) * 100
-    prob_c = (1 - poisson.cdf(8, exp_c)) * 100
+    p_g15 = (1 - poisson.cdf(1, exp_g)) * 100
+    p_c85 = (1 - poisson.cdf(8, exp_c)) * 100
     
-    c1, c2 = st.columns(2)
-    c1.metric("Over 1.5 Gols", f"{prob_g:.1f}%", f"Odd Justa: {100/prob_g:.2f}")
-    c2.metric("Over 8.5 Cantos", f"{prob_c:.1f}%", f"Odd Justa: {100/prob_c:.2f}")
+    st.write("### Gols e Escanteios")
+    col_g, col_c = st.columns(2)
+    col_g.metric("Over 1.5 Gols", f"{p_g15:.1f}%", f"Odd: {100/p_g15:.2f}")
+    col_c.metric("Over 8.5 Cantos", f"{p_c85:.1f}%", f"Odd: {100/p_c85:.2f}")
     
     st.divider()
-    st.write("**Resultado Final (1x2)**")
+    st.write("### Resultado Final (1x2)")
     m_sim = np.random.poisson(m_casa['G_M'].mean(), 10000)
     v_sim = np.random.poisson(v_fora['G_V'].mean(), 10000)
     v1 = (m_sim > v_sim).mean()*100; e = (m_sim == v_sim).mean()*100; v2 = (m_sim < v_sim).mean()*100
     
-    r1, r2, r3 = st.columns(3)
-    r1.metric("Casa", f"{v1:.1f}%")
-    r2.metric("Empate", f"{e:.1f}%")
-    r3.metric("Fora", f"{v2:.1f}%")
+    res1, res2, res3 = st.columns(3)
+    res1.metric(f"Vitória {t_m}", f"{v1:.1f}%", f"@{100/v1:.2f}")
+    res2.metric("Empate", f"{e:.1f}%", f"@{100/e:.2f}")
+    res3.metric(f"Vitória {t_v}", f"{v2:.1f}%", f"@{100/v2:.2f}")
 
 with tab2:
-    st.subheader("📋 Médias por Time (H2H)")
+    st.subheader("📋 Médias de Ataque e Escanteios")
     
-    def metricas_h2h(label, col_m, col_v):
+    def bloco_numerico(label, val_m, val_v):
         st.write(f"**{label}**")
-        col_a, col_b, col_c = st.columns(3)
-        val_m = m_casa[col_m].mean()
-        val_v = v_fora[col_v].mean()
-        col_a.metric(f"{t_m}", f"{val_m:.2f}")
-        col_b.metric(f"{t_v}", f"{val_v:.2f}")
-        col_c.metric("Total", f"{val_m + val_v:.2f}")
+        n1, n2, n3 = st.columns(3)
+        n1.write(f"🏠 {t_m}: **{val_m:.2f}**")
+        n2.write(f"🚌 {t_v}: **{val_v:.2f}**")
+        n3.write(f"📊 Total: **{val_m + val_v:.2f}**")
         st.divider()
 
-    metricas_h2h("⚽ Gols Marcados", 'G_M', 'G_V')
-    metricas_h2h("⛳ Escanteios", 'C_M', 'C_V')
+    bloco_numerico("⚽ Gols Marcados", m_casa['G_M'].mean(), v_fora['G_V'].mean())
+    bloco_numerico("⛳ Escanteios", m_casa['C_M'].mean(), v_fora['C_V'].mean())
 
 with tab3:
-    st.subheader("🚀 Performance Ofensiva")
-    metricas_h2h("🔥 Finalizações Totais", 'CH_M', 'CH_V')
-    metricas_h2h("🎯 Chutes ao Gol", 'CG_M', 'CG_V')
-    st.subheader("🟨 Disciplina")
-    metricas_h2h("🟨 Cartões Amarelos", 'AM_M', 'AM_V')
-    metricas_h2h("🛑 Faltas Cometidas", 'FT_M', 'FT_V')
+    st.subheader("📋 Finalizações e Disciplina")
+    bloco_numerico("🔥 Finalizações Totais", m_casa['CH_M'].mean(), v_fora['CH_V'].mean())
+    bloco_numerico("🎯 Chutes ao Gol", m_casa['CG_M'].mean(), v_fora['CG_V'].mean())
+    bloco_numerico("🟨 Cartões Amarelos", m_casa['AM_M'].mean(), v_fora['AM_V'].mean())
+    bloco_numerico("🛑 Faltas Cometidas", m_casa['FT_M'].mean(), v_fora['FT_V'].mean())
