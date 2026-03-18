@@ -1,9 +1,9 @@
 import streamlit as st
 
 # 1. Configuração da página
-st.set_page_config(page_title="Scout Pro H2H", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="Scout H2H Passes", page_icon="⚽", layout="wide")
 
-st.title("📈 Scout de Passes: Projeção Cruzada + Odd Justa")
+st.title("📈 Scout de Passes: Painel da Rodada")
 
 # 2. Listas Oficiais
 times_ligas = {
@@ -26,37 +26,27 @@ abas = st.tabs([f"Jogo {i}" for i in range(1, 11)])
 
 def criar_bloco_scout(titulo, prefixo, aba_id):
     st.subheader(titulo)
-    liga_sel = st.selectbox(f"Liga ({titulo})", list(times_ligas.keys()), key=f"liga_{prefixo}_{aba_id}")
+    liga_sel = st.selectbox(f"Liga", list(times_ligas.keys()), key=f"l_{prefixo}_{aba_id}")
     lista_de_times = sorted(times_ligas[liga_sel])
-    time_selecionado = st.selectbox(f"Time", lista_de_times, key=f"sel_{prefixo}_{aba_id}")
+    time_sel = st.selectbox(f"Time", lista_de_times, key=f"s_{prefixo}_{aba_id}")
     
-    st.markdown("---")
     h1, h2, h3 = st.columns(3)
-    h1.caption("FAZ (PRO)")
-    h2.caption("LEVA (CONTRA)")
+    h1.caption("FAZ")
+    h2.caption("LEVA")
     h3.caption("TOTAL")
 
-    lista_pro = []
-    lista_contra = []
-
+    l_pro, l_contra = [], []
     for i in range(1, 6):
         c1, c2, c3 = st.columns(3)
-        with c1:
-            p = st.number_input(f"P{i}", min_value=0, step=1, key=f"{prefixo}_{aba_id}_p{i}", label_visibility="collapsed")
-        with c2:
-            c = st.number_input(f"C{i}", min_value=0, step=1, key=f"{prefixo}_c{i}", label_visibility="collapsed")
-        
-        total_linha = p + c
-        with c3:
-            st.markdown(f"**{total_linha}**")
-            
-        if p > 0: lista_pro.append(p)
-        if c > 0: lista_contra.append(c)
+        p = c1.number_input(f"P{i}", min_value=0, step=1, key=f"{prefixo}_{aba_id}p{i}", label_visibility="collapsed")
+        c = c2.number_input(f"C{i}", min_value=0, step=1, key=f"{prefixo}_{aba_id}c{i}", label_visibility="collapsed")
+        c3.markdown(f"**{p + c}**")
+        if p > 0: l_pro.append(p)
+        if c > 0: l_contra.append(c)
     
-    m_pro = sum(lista_pro) / len(lista_pro) if lista_pro else 0
-    m_contra = sum(lista_contra) / len(lista_contra) if lista_contra else 0
-    
-    return time_selecionado, m_pro, m_contra
+    m_pro = sum(l_pro) / len(l_pro) if l_pro else 0
+    m_contra = sum(l_contra) / len(l_contra) if l_contra else 0
+    return time_sel, m_pro, m_contra
 
 for idx, aba in enumerate(abas):
     with aba:
@@ -71,59 +61,38 @@ for idx, aba in enumerate(abas):
             proj_v = (v_pro + m_contra) / 2
             exp_total = proj_m + proj_v
 
-            st.markdown(f"### 📊 Projeção de Passes")
-            c1, c2, c3 = st.columns(3)
-            c1.metric(f"Proj. Individual {tm}", f"{proj_m:.1f}")
-            c2.metric(f"Proj. Individual {tv}", f"{proj_v:.1f}")
-            c3.metric("Expectativa do Jogo", f"{exp_total:.1f}")
+            st.markdown(f"### 📊 Projeção: {tm} vs {tv}")
+            r1, r2, r3 = st.columns(3)
+            r1.metric(f"Proj. {tm}", f"{proj_m:.1f}")
+            r2.metric(f"Proj. {tv}", f"{proj_v:.1f}")
+            r3.metric("Expectativa Jogo", f"{exp_total:.1f}")
 
             st.divider()
-
-            # --- COMPARADOR DE ODDS ---
-            st.markdown("### 🏦 Comparativo de Odds (Valor)")
+            
+            # --- SEÇÃO DE ODDS ---
+            st.markdown("#### 🏦 Comparar com a Casa (Odds)")
             o1, o2, o3 = st.columns(3)
             
             with o1:
-                st.info(f"**Over Individual {tm}**")
-                linha_m = st.number_input(f"Linha {tm}", min_value=0.0, step=0.5, key=f"l_m_{idx}")
-                odd_casa_m = st.number_input(f"Odd {tm}", min_value=1.0, step=0.01, key=f"o_m_{idx}")
-                if linha_m > 0 and odd_casa_m > 1:
-                    # Cálculo simplificado de Odd Justa baseado na margem de passes
-                    odd_justa_m = 1.90 if proj_m > linha_m + 10 else 2.10
-                    if proj_m > linha_m: st.write(f"Sua Projeção: +{proj_m - linha_m:.1f} passes")
+                st.caption(f"Linha/Odd Individual {tm}")
+                l_m = st.number_input("Linha", step=0.5, key=f"lm{idx}")
+                odd_m = st.number_input("Odd", step=0.01, key=f"om{idx}")
+                if l_m > 0 and proj_m > l_m + 10: st.success("VALOR NO MANDANTE")
 
             with o2:
-                st.info(f"**Over Individual {tv}**")
-                linha_v = st.number_input(f"Linha {tv}", min_value=0.0, step=0.5, key=f"l_v_{idx}")
-                odd_casa_v = st.number_input(f"Odd {tv}", min_value=1.0, step=0.01, key=f"o_v_{idx}")
-                if linha_v > 0 and odd_casa_v > 1:
-                    if proj_v > linha_v: st.write(f"Sua Projeção: +{proj_v - linha_v:.1f} passes")
+                st.caption(f"Linha/Odd Individual {tv}")
+                l_v = st.number_input("Linha ", step=0.5, key=f"lv{idx}")
+                odd_v = st.number_input("Odd ", step=0.01, key=f"ov{idx}")
+                if l_v > 0 and proj_v > l_v + 10: st.success("VALOR NO VISITANTE")
 
             with o3:
-                st.info("**Over Total (Ambos)**")
-                linha_jogo = st.number_input("Linha Jogo", min_value=0.0, step=0.5, key=f"l_j_{idx}")
-                odd_casa_j = st.number_input("Odd Jogo", min_value=1.0, step=0.01, key=f"o_j_{idx}")
-
-            # Sinais de Entrada
-            st.markdown("#### 🎯 Sinais de Operação")
-            final1, final2, final3 = st.columns(3)
-            
-            if linha_m > 0:
-                diff_m = proj_m - linha_m
-                if diff_m > 15: final1.success(f"VALOR OVER {tm}")
-                elif diff_m < -15: final1.error(f"VALOR UNDER {tm}")
-
-            if linha_v > 0:
-                diff_v = proj_v - linha_v
-                if diff_v > 15: final2.success(f"VALOR OVER {tv}")
-                elif diff_v < -15: final2.error(f"VALOR UNDER {tv}")
-
-            if linha_jogo > 0:
-                diff_j = exp_total - linha_jogo
-                if diff_j > 20: final3.success("VALOR OVER AMBOS")
-                elif diff_j < -20: final3.error("VALOR UNDER AMBOS")
+                st.caption("Linha/Odd do Jogo (Ambos)")
+                l_j = st.number_input("Linha  ", step=0.5, key=f"lj{idx}")
+                odd_j = st.number_input("Odd  ", step=0.01, key=f"oj{idx}")
+                if l_j > 0 and exp_total > l_j + 15: st.success("VALOR NO JOGO")
         else:
-            st.info(f"Aguardando dados na Aba {idx+1}")
+            st.info(f"Preencha os dados na Aba {idx+1}")
 
-if st.button("🔄 Resetar Tudo"):
+st.divider()
+if st.button("🔄 Resetar Rodada"):
     st.rerun()
