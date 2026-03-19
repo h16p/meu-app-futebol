@@ -25,10 +25,23 @@ liga_sel = st.selectbox("1. Selecione a Liga", list(ligas_url.keys()))
 @st.cache_data
 def carregar_dados(url):
     try:
-        df = pd.read_csv(url)
+        df_raw = pd.read_csv(url)
+        # DICIONÁRIO CORRIGIDO (Linha 34 verificada)
         dic = {
             'Date': 'Data', 'HomeTeam':'M', 'AwayTeam':'V', 'FTHG':'G_M', 'FTAG':'G_V',
             'HTHG':'HTG_M', 'HTAG':'HTG_V', 'HC':'C_M', 'AC':'C_V', 
             'HF':'FT_M', 'AF':'FT_V', 'HY':'AM_M', 'AY':'AM_V', 
             'HR':'VM_M', 'AR':'VM_V', 'HS':'CH_M', 'AS':'CH_V',
-            'HST':'CG_
+            'HST':'CG_M', 'AST':'CG_V', 'Referee':'Juiz'
+        }
+        return df_raw.rename(columns=dic)
+    except Exception as e:
+        return None
+
+df = carregar_dados(ligas_url[liga_sel])
+
+if df is None:
+    st.warning(f"⚠️ Dados não encontrados para 2026. Tente outra liga ou verifique a conexão.")
+    st.stop()
+
+# 3. Seleção de
