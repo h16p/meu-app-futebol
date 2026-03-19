@@ -1,65 +1,49 @@
 import streamlit as st
 import pandas as pd
-import requests
-from datetime import datetime
 
-st.set_page_config(page_title="Scout Live SofaScore", layout="wide")
+st.set_page_config(page_title="Scout Premier League", layout="wide")
 
-st.sidebar.header("Configurações")
-data_escolhida = st.sidebar.date_input("Escolha a data", datetime.now())
+# Link direto para o arquivo CSV de passes da Premier League (via FBref/Sports-Reference)
+# Essa técnica é mais estável que tentar ler o site diretamente
+URL_PASSES = "https://fbref.com/en/comps/9/passing/Premier-League-Stats"
 
-def buscar_passes_geral(data_objeto):
-    data_str = data_objeto.strftime('%Y-%m-%d')
-    url_eventos = f"https://api.sofascore.com/api/v1/sport/football/scheduled-events/{data_str}"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Referer": "https://www.sofascore.com/"
-    }
-
+@st.cache_data(ttl=3600)
+def carregar_passes_equipe():
     try:
-        response = requests.get(url_eventos, headers=headers, timeout=10)
-        if response.status_code != 200:
-            return f"Erro de conexão com SofaScore: {response.status_code}"
-            
-        eventos = response.json().get('events', [])
-        lista_final = []
-
-        # Vamos analisar os primeiros 50 jogos da lista para ser rápido
-        for jogo in eventos[:50]:
-            status = jogo.get('status', {}).get('type')
-            
-            # Se o jogo já acabou ou está rolando, tentamos pegar o passe
-            if status in ['finished', 'inprogress']:
-                id_jogo = jogo.get('id')
-                res_stats = requests.get(f"https://api.sofascore.com/api/v1/event/{id_jogo}/statistics", headers=headers)
-                
-                if res_stats.status_code == 200:
-                    stats_data = res_stats.json().get('statistics', [])
-                    for periodo in stats_data:
-                        if periodo.get('period') == 'ALL':
-                            for group in periodo.get('groups', []):
-                                for item in group.get('statisticsItems', []):
-                                    if item.get('name') == 'Total passes':
-                                        lista_final.append({
-                                            "Liga": jogo.get('tournament', {}).get('name'),
-                                            "Mandante": jogo.get('homeTeam', {}).get('name'),
-                                            "Passes M": item.get('home'),
-                                            "Visitante": jogo.get('awayTeam', {}).get('name'),
-                                            "Passes V": item.get('away')
-                                        })
+        # Usamos o pandas para ler a tabela. O 'storage_options' ajuda a evitar o bloqueio 403.
+        # O FBref permite o acesso se for uma leitura de tabela simples.
+        tabelas = pd.read_html(URL_PASSES, attrs={'id': 'stats_passing_squads'})
+        df = tabelas[0]
         
-        return pd.DataFrame(lista_final) if lista_final else "Nenhum jogo com estatística de passes encontrado."
+        # Ajustando cabeçalhos complexos do FBref
+        df.columns = [col[1] if isinstance(col, tuple) else col for col in df.columns]
+        
+        # Selecionamos apenas: Equipe (Squad) e Passes Tentados (Att)
+        df_final = df[['Squad', 'Att']].copy()
+        df_final.columns = ['Time', 'Passes Tentados']
+        
+        return df_final
     except Exception as e:
-        return f"Erro: {e}"
+        return f"Erro ao acessar dados: {e}"
 
-st.title("⚽ Teste de Extração Global")
+# --- Interface ---
+st.title("📊 Estatísticas Oficiais de Passes")
+st.subheader("Premier League - Temporada Atual")
 
-if st.button("🔍 Buscar qualquer jogo com passes"):
-    with st.spinner("Procurando jogos com estatísticas..."):
-        df = buscar_passes_geral(data_escolhida)
-        if isinstance(df, str):
-            st.warning(df)
+if st.button("🔄 Carregar Tabela de Passes"):
+    with st.spinner("Buscando dados oficiais..."):
+        dados = carregar_passes_equipe()
+        
+        if isinstance(dados, str):
+            st.error(dados)
+            st.info("O site pode estar em manutenção. Tente novamente em alguns minutos.")
         else:
-            st.success("Dados encontrados!")
-            st.dataframe(df)
+            st.success("Dados carregados diretamente do FBref!")
+            
+            # Cálculo de média aproximada (considerando 28 jogos na temporada)
+            dados['Média por Jogo'] = (dados['Passes Tentados'] / 28).round(1)
+            
+            st.dataframe(dados, use_container_width=True, hide_index=True)
+
+st.divider()
+st.write("⚠️ **Nota:** Esta tabela mostra o total acumulado na temporada. Use esses números para atualizar sua planilha base.")
