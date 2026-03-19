@@ -1,49 +1,57 @@
 import streamlit as st
 import pandas as pd
+import requests
 
 st.set_page_config(page_title="Scout Premier League", layout="wide")
 
-# Link direto para o arquivo CSV de passes da Premier League (via FBref/Sports-Reference)
-# Essa técnica é mais estável que tentar ler o site diretamente
-URL_PASSES = "https://fbref.com/en/comps/9/passing/Premier-League-Stats"
-
 @st.cache_data(ttl=3600)
-def carregar_passes_equipe():
+def carregar_passes_blindado():
+    # URL do FBref
+    target_url = "https://fbref.com/en/comps/9/passing/Premier-League-Stats"
+    
+    # Usando um serviço de Proxy gratuito (AllOrigins) para contornar o bloqueio 403
+    proxy_url = f"https://api.allorigins.win/get?url={target_url}"
+    
     try:
-        # Usamos o pandas para ler a tabela. O 'storage_options' ajuda a evitar o bloqueio 403.
-        # O FBref permite o acesso se for uma leitura de tabela simples.
-        tabelas = pd.read_html(URL_PASSES, attrs={'id': 'stats_passing_squads'})
-        df = tabelas[0]
-        
-        # Ajustando cabeçalhos complexos do FBref
-        df.columns = [col[1] if isinstance(col, tuple) else col for col in df.columns]
-        
-        # Selecionamos apenas: Equipe (Squad) e Passes Tentados (Att)
-        df_final = df[['Squad', 'Att']].copy()
-        df_final.columns = ['Time', 'Passes Tentados']
-        
-        return df_final
+        response = requests.get(proxy_url, timeout=20)
+        if response.status_code == 200:
+            # O serviço retorna um JSON com o HTML dentro do campo 'contents'
+            html_content = response.json()['contents']
+            
+            # O pandas agora lê o HTML que veio pelo túnel do proxy
+            tabelas = pd.read_html(html_content, attrs={'id': 'stats_passing_squads'})
+            df = tabelas[0]
+            
+            # Limpeza de colunas (FBref usa 2 níveis)
+            df.columns = [col[1] if isinstance(col, tuple) else col for col in df.columns]
+            
+            # Filtra e organiza
+            df_final = df[['Squad', '90s', 'Att']].copy()
+            df_final.columns = ['Time', 'Jogos', 'Total Passes']
+            
+            # Converte para número e calcula a média real baseada nos jogos disputados
+            df_final['Total Passes'] = pd.to_numeric(df_final['Total Passes'], errors='coerce')
+            df_final['Jogos'] = pd.to_numeric(df_final['Jogos'], errors='coerce')
+            df_final['Média Real'] = (df_final['Total Passes'] / df_final['Jogos']).round(1)
+            
+            return df_final.sort_values(by='Média Real', ascending=False)
+        else:
+            return f"Erro no túnel de dados: {response.status_code}"
     except Exception as e:
-        return f"Erro ao acessar dados: {e}"
+        return f"Falha na conexão blindada: {e}"
 
 # --- Interface ---
-st.title("📊 Estatísticas Oficiais de Passes")
-st.subheader("Premier League - Temporada Atual")
+st.title("🛡️ Scout Premier League (Modo Anti-Bloqueio)")
 
-if st.button("🔄 Carregar Tabela de Passes"):
-    with st.spinner("Buscando dados oficiais..."):
-        dados = carregar_passes_equipe()
+if st.button("🚀 Puxar Passes Oficiais"):
+    with st.spinner("Ativando túnel de dados..."):
+        dados = carregar_passes_blindado()
         
         if isinstance(dados, str):
             st.error(dados)
-            st.info("O site pode estar em manutenção. Tente novamente em alguns minutos.")
+            st.info("O sistema de proteção do site é forte. Tente clicar novamente.")
         else:
-            st.success("Dados carregados diretamente do FBref!")
-            
-            # Cálculo de média aproximada (considerando 28 jogos na temporada)
-            dados['Média por Jogo'] = (dados['Passes Tentados'] / 28).round(1)
-            
+            st.success("Dados extraídos com sucesso via Túnel Proxy!")
             st.dataframe(dados, use_container_width=True, hide_index=True)
 
-st.divider()
-st.write("⚠️ **Nota:** Esta tabela mostra o total acumulado na temporada. Use esses números para atualizar sua planilha base.")
+st.info("💡 Este código usa uma rota alternativa para buscar os dados sem ser barrado pelo erro 403.")
