@@ -7,14 +7,14 @@ from scipy.stats import poisson
 st.set_page_config(page_title="Futebol", page_icon="⚽", layout="centered")
 st.title("📊 Painel Estatístico - Helton Silva")
 
-# URLs Oficiais Football-Data.co.uk - Temporada 2025/2026
-urls = {
-    "Premier League": "https://www.football-data.co.uk/mmz4281/2526/E0.csv",
-    "Championship": "https://www.football-data.co.uk/mmz4281/2526/E1.csv",
-    "League 1": "https://www.football-data.co.uk/mmz4281/2526/E2.csv",
-    "League 2": "https://www.football-data.co.uk/mmz4281/2526/E3.csv",
-    "Bundesliga": "https://www.football-data.co.uk/mmz4281/2526/D1.csv",
-    "Serie A (Itália)": "https://www.football-data.co.uk/mmz4281/2526/I1.csv",
+ligas_url = {
+    'Brasileirão Série A': 'https://www.football-data.co.uk/mmz4281/2526/BRA.csv',
+    'Brasileirão Série B': 'https://www.football-data.co.uk/mmz4281/2526/BRA2.csv',
+    'Premier League (Ing)': 'https://www.football-data.co.uk/mmz4281/2526/E0.csv',
+    'LaLiga (Esp)': 'https://www.football-data.co.uk/mmz4281/2526/SP1.csv',
+    'Serie A (Ita)': 'https://www.football-data.co.uk/mmz4281/2526/I1.csv',
+    'Bundesliga (Ale)': 'https://www.football-data.co.uk/mmz4281/2526/D1.csv'
+}
     "La Liga (Espanha)": "https://www.football-data.co.uk/mmz4281/2526/SP1.csv",
     "Ligue 1 (França)": "https://www.football-data.co.uk/mmz4281/2526/F1.csv",
     "Eredivisie (Holanda)": "https://www.football-data.co.uk/mmz4281/2526/N1.csv",
