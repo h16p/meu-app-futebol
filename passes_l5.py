@@ -2,56 +2,57 @@ import streamlit as st
 import pandas as pd
 import requests
 
-st.set_page_config(page_title="Scout Premier League", layout="wide")
+st.set_page_config(page_title="Scout Oficial Helton", layout="wide")
+
+# Seu Token que chegou no e-mail
+TOKEN = "6885c24f13634f3fbea1b7065cd05bf8"
 
 @st.cache_data(ttl=3600)
-def carregar_passes_blindado():
-    # URL do FBref
-    target_url = "https://fbref.com/en/comps/9/passing/Premier-League-Stats"
-    
-    # Usando um serviço de Proxy gratuito (AllOrigins) para contornar o bloqueio 403
-    proxy_url = f"https://api.allorigins.win/get?url={target_url}"
-    
+def carregar_dados_api(endpoint):
+    url = f"https://api.football-data.org/v2/{endpoint}"
+    headers = {'X-Auth-Token': TOKEN}
     try:
-        response = requests.get(proxy_url, timeout=20)
-        if response.status_code == 200:
-            # O serviço retorna um JSON com o HTML dentro do campo 'contents'
-            html_content = response.json()['contents']
-            
-            # O pandas agora lê o HTML que veio pelo túnel do proxy
-            tabelas = pd.read_html(html_content, attrs={'id': 'stats_passing_squads'})
-            df = tabelas[0]
-            
-            # Limpeza de colunas (FBref usa 2 níveis)
-            df.columns = [col[1] if isinstance(col, tuple) else col for col in df.columns]
-            
-            # Filtra e organiza
-            df_final = df[['Squad', '90s', 'Att']].copy()
-            df_final.columns = ['Time', 'Jogos', 'Total Passes']
-            
-            # Converte para número e calcula a média real baseada nos jogos disputados
-            df_final['Total Passes'] = pd.to_numeric(df_final['Total Passes'], errors='coerce')
-            df_final['Jogos'] = pd.to_numeric(df_final['Jogos'], errors='coerce')
-            df_final['Média Real'] = (df_final['Total Passes'] / df_final['Jogos']).round(1)
-            
-            return df_final.sort_values(by='Média Real', ascending=False)
+        response = requests.get(url, headers=headers, timeout=15)
+        return response.json()
+    except:
+        return None
+
+st.title("🏆 Scout Premier League (Dados Oficiais)")
+
+# Criando duas abas: Classificação e Jogos
+tab1, tab2 = st.tabs(["📊 Tabela de Classificação", "📅 Próximos Jogos"])
+
+with tab1:
+    if st.button("🔄 Atualizar Tabela"):
+        dados = carregar_dados_api("competitions/PL/standings")
+        if dados and 'standings' in dados:
+            tabela = dados['standings'][0]['table']
+            df = pd.DataFrame([
+                {
+                    "Pos": t['position'],
+                    "Time": t['team']['name'],
+                    "J": t['playedGames'],
+                    "V": t['won'],
+                    "E": t['draw'],
+                    "D": t['lost'],
+                    "Gols": t['goalsFor'],
+                    "Pts": t['points']
+                } for t in tabela
+            ])
+            st.table(df)
         else:
-            return f"Erro no túnel de dados: {response.status_code}"
-    except Exception as e:
-        return f"Falha na conexão blindada: {e}"
+            st.error("Erro ao carregar a tabela.")
 
-# --- Interface ---
-st.title("🛡️ Scout Premier League (Modo Anti-Bloqueio)")
-
-if st.button("🚀 Puxar Passes Oficiais"):
-    with st.spinner("Ativando túnel de dados..."):
-        dados = carregar_passes_blindado()
-        
-        if isinstance(dados, str):
-            st.error(dados)
-            st.info("O sistema de proteção do site é forte. Tente clicar novamente.")
+with tab2:
+    if st.button("🔍 Ver Próximos Jogos"):
+        dados_jogos = carregar_dados_api("competitions/PL/matches?status=SCHEDULED")
+        if dados_jogos and 'matches' in dados_jogos:
+            jogos = dados_jogos['matches'][:10] # Mostra os próximos 10
+            for j in jogos:
+                st.write(f"**{j['homeTeam']['name']}** vs **{j['awayTeam']['name']}**")
+                st.caption(f"Data: {j['utcDate']}")
+                st.divider()
         else:
-            st.success("Dados extraídos com sucesso via Túnel Proxy!")
-            st.dataframe(dados, use_container_width=True, hide_index=True)
+            st.warning("Nenhum jogo agendado encontrado.")
 
-st.info("💡 Este código usa uma rota alternativa para buscar os dados sem ser barrado pelo erro 403.")
+st.sidebar.info("Conectado via API Football-Data.org")
