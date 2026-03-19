@@ -2,57 +2,61 @@ import streamlit as st
 import pandas as pd
 import requests
 
-st.set_page_config(page_title="Scout Oficial Helton", layout="wide")
-
-# Seu Token que chegou no e-mail
-TOKEN = "6885c24f13634f3fbea1b7065cd05bf8"
+st.set_page_config(page_title="Scout de Passes - PL", layout="wide")
 
 @st.cache_data(ttl=3600)
-def carregar_dados_api(endpoint):
-    url = f"https://api.football-data.org/v2/{endpoint}"
-    headers = {'X-Auth-Token': TOKEN}
+def buscar_ranking_passes():
+    url = "https://fbref.com/en/comps/9/passing/Premier-League-Stats"
+    
+    # Cabeçalho para evitar o erro 403 Forbidden
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
     try:
+        # Fazemos a requisição manual para passar o User-Agent
         response = requests.get(url, headers=headers, timeout=15)
-        return response.json()
-    except:
-        return None
+        
+        # O Pandas lê as tabelas do texto da resposta
+        tabelas = pd.read_html(response.text, attrs={'id': 'stats_passing_squads'})
+        df = tabelas[0]
+        
+        # Limpeza de colunas (O FBref usa MultiIndex)
+        df.columns = [col[1] if isinstance(col, tuple) else col for col in df.columns]
+        
+        # Selecionando colunas cruciais de passes:
+        # Squad: Time | 90s: Jogos | Att: Tentados | Cmp: Completos | Cmp%: Precisão
+        df_passes = df[['Squad', '90s', 'Att', 'Cmp', 'Cmp%']].copy()
+        df_passes.columns = ['Time', 'Jogos', 'Tentados', 'Completos', '% Acerto']
+        
+        # Calculando a média de passes tentados por jogo
+        df_passes['Média Tentados/Jogo'] = (df_passes['Tentados'] / df_passes['Jogos']).round(1)
+        
+        return df_passes.sort_values(by='Média Tentados/Jogo', ascending=False)
+    
+    except Exception as e:
+        return f"Erro ao acessar dados de passes: {e}"
 
-st.title("🏆 Scout Premier League (Dados Oficiais)")
+# --- Interface ---
+st.title("🎯 Ranking de Passes - Premier League")
+st.write("Dados extraídos em tempo real da temporada atual.")
 
-# Criando duas abas: Classificação e Jogos
-tab1, tab2 = st.tabs(["📊 Tabela de Classificação", "📅 Próximos Jogos"])
-
-with tab1:
-    if st.button("🔄 Atualizar Tabela"):
-        dados = carregar_dados_api("competitions/PL/standings")
-        if dados and 'standings' in dados:
-            tabela = dados['standings'][0]['table']
-            df = pd.DataFrame([
-                {
-                    "Pos": t['position'],
-                    "Time": t['team']['name'],
-                    "J": t['playedGames'],
-                    "V": t['won'],
-                    "E": t['draw'],
-                    "D": t['lost'],
-                    "Gols": t['goalsFor'],
-                    "Pts": t['points']
-                } for t in tabela
-            ])
-            st.table(df)
+if st.button("📊 Puxar Dados de Passes"):
+    with st.spinner("Analisando scouts do FBref..."):
+        dados = buscar_ranking_passes()
+        
+        if isinstance(dados, str):
+            st.error(dados)
+            st.info("Dica: Se aparecer erro 403, o site bloqueou temporariamente. Tente em 5 minutos.")
         else:
-            st.error("Erro ao carregar a tabela.")
+            st.success("Dados de passes carregados!")
+            
+            # Exibindo a tabela principal
+            st.dataframe(dados, use_container_width=True, hide_index=True)
+            
+            # Gráfico de comparação de volume de jogo
+            st.subheader("Volume de Passes por Jogo")
+            st.bar_chart(dados.set_index('Time')['Média Tentados/Jogo'])
 
-with tab2:
-    if st.button("🔍 Ver Próximos Jogos"):
-        dados_jogos = carregar_dados_api("competitions/PL/matches?status=SCHEDULED")
-        if dados_jogos and 'matches' in dados_jogos:
-            jogos = dados_jogos['matches'][:10] # Mostra os próximos 10
-            for j in jogos:
-                st.write(f"**{j['homeTeam']['name']}** vs **{j['awayTeam']['name']}**")
-                st.caption(f"Data: {j['utcDate']}")
-                st.divider()
-        else:
-            st.warning("Nenhum jogo agendado encontrado.")
-
-st.sidebar.info("Conectado via API Football-Data.org")
+st.divider()
+st.caption("Nota: 'Tentados' representa o volume total de jogo da equipe.")
