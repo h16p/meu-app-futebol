@@ -1,11 +1,11 @@
 import streamlit as st
 
-# 1. Configuração da página
-st.set_page_config(page_title="Scout Pro H2H", page_icon="⚽", layout="wide")
+# 1. Configuração da página - DEVE SER A PRIMEIRA LINHA
+st.set_page_config(page_title="Scout Rodada 10 Jogos", page_icon="⚽", layout="wide")
 
-st.title("📈 Scout de Passes: Projeção Cruzada + Odd Justa")
+st.title("📈 Scout de Passes: Painel da Rodada (10 Jogos)")
 
-# 2. Listas Oficiais
+# 2. Suas Listas Oficiais
 times_ligas = {
     "Brasileirão Série A": [
         "Athletico-PR", "Atlético-MG", "Bahia", "Botafogo", "Bragantino", 
@@ -21,13 +21,17 @@ times_ligas = {
     ]
 }
 
-# 3. Criação das 10 Abas
+# 3. Criação das 10 Abas para a Rodada
 abas = st.tabs([f"Jogo {i}" for i in range(1, 11)])
 
+# --- FUNÇÃO PARA O BLOCO DE SCOUT ---
 def criar_bloco_scout(titulo, prefixo, aba_id):
     st.subheader(titulo)
+    
+    # Cada widget precisa de uma 'key' única, por isso somamos o prefixo com o ID da aba
     liga_sel = st.selectbox(f"Liga ({titulo})", list(times_ligas.keys()), key=f"liga_{prefixo}_{aba_id}")
     lista_de_times = sorted(times_ligas[liga_sel])
+    
     time_selecionado = st.selectbox(f"Time", lista_de_times, key=f"sel_{prefixo}_{aba_id}")
     
     st.markdown("---")
@@ -44,7 +48,7 @@ def criar_bloco_scout(titulo, prefixo, aba_id):
         with c1:
             p = st.number_input(f"P{i}", min_value=0, step=1, key=f"{prefixo}_{aba_id}_p{i}", label_visibility="collapsed")
         with c2:
-            c = st.number_input(f"C{i}", min_value=0, step=1, key=f"{prefixo}_c{i}", label_visibility="collapsed")
+            c = st.number_input(f"C{i}", min_value=0, step=1, key=f"{prefixo}_{aba_id}_c{i}", label_visibility="collapsed")
         
         total_linha = p + c
         with c3:
@@ -53,77 +57,55 @@ def criar_bloco_scout(titulo, prefixo, aba_id):
         if p > 0: lista_pro.append(p)
         if c > 0: lista_contra.append(c)
     
-    m_pro = sum(lista_pro) / len(lista_pro) if lista_pro else 0
-    m_contra = sum(lista_contra) / len(lista_contra) if lista_contra else 0
+    media_pro = sum(lista_pro) / len(lista_pro) if lista_pro else 0
+    media_contra = sum(lista_contra) / len(lista_contra) if lista_contra else 0
     
-    return time_selecionado, m_pro, m_contra
+    return time_selecionado, media_pro, media_contra
 
+# --- LOOP PARA GERAR O CONTEÚDO DE CADA ABA ---
 for idx, aba in enumerate(abas):
     with aba:
         col_m, col_v = st.columns(2)
-        with col_m: tm, m_pro, m_contra = criar_bloco_scout("🏠 MANDANTE", "m", idx)
-        with col_v: tv, v_pro, v_contra = criar_bloco_scout("🚌 VISITANTE", "v", idx)
+        
+        with col_m:
+            tm, m_pro, m_contra = criar_bloco_scout("🏠 MANDANTE", "m", idx)
+        
+        with col_v:
+            tv, v_pro, v_contra = criar_bloco_scout("🚌 VISITANTE", "v", idx)
 
         st.divider()
 
+        # CÁLCULO DA MÉDIA CRUZADA (Faz de um + Leva do outro)
         if (m_pro > 0 and v_contra > 0) or (v_pro > 0 and m_contra > 0):
-            proj_m = (m_pro + v_contra) / 2
-            proj_v = (v_pro + m_contra) / 2
-            exp_total = proj_m + proj_v
+            proj_faz_m = (m_pro + v_contra) / 2
+            proj_faz_v = (v_pro + m_contra) / 2
+            expectativa_total = proj_faz_m + proj_faz_v
 
-            st.markdown(f"### 📊 Projeção de Passes")
-            c1, c2, c3 = st.columns(3)
-            c1.metric(f"Proj. Individual {tm}", f"{proj_m:.1f}")
-            c2.metric(f"Proj. Individual {tv}", f"{proj_v:.1f}")
-            c3.metric("Expectativa do Jogo", f"{exp_total:.1f}")
+            st.markdown(f"### 📊 Resultado: {tm} vs {tv}")
+            r1, r2, r3 = st.columns(3)
+            r1.metric(f"Proj. {tm}", f"{proj_faz_m:.1f}")
+            r2.metric(f"Proj. {tv}", f"{proj_faz_v:.1f}")
+            r3.metric("Expectativa Jogo", f"{expectativa_total:.1f}")
 
             st.divider()
 
-            # --- COMPARADOR DE ODDS ---
-            st.markdown("### 🏦 Comparativo de Odds (Valor)")
-            o1, o2, o3 = st.columns(3)
-            
-            with o1:
-                st.info(f"**Over Individual {tm}**")
-                linha_m = st.number_input(f"Linha {tm}", min_value=0.0, step=0.5, key=f"l_m_{idx}")
-                odd_casa_m = st.number_input(f"Odd {tm}", min_value=1.0, step=0.01, key=f"o_m_{idx}")
-                if linha_m > 0 and odd_casa_m > 1:
-                    # Cálculo simplificado de Odd Justa baseado na margem de passes
-                    odd_justa_m = 1.90 if proj_m > linha_m + 10 else 2.10
-                    if proj_m > linha_m: st.write(f"Sua Projeção: +{proj_m - linha_m:.1f} passes")
+            # COMPARADOR DE VALOR COM A LINHA DA CASA
+            st.markdown("#### 🏦 Comparar com a Linha da Bet")
+            linha_casa = st.number_input("Linha da Casa", min_value=0.0, step=0.5, key=f"linha_{idx}")
 
-            with o2:
-                st.info(f"**Over Individual {tv}**")
-                linha_v = st.number_input(f"Linha {tv}", min_value=0.0, step=0.5, key=f"l_v_{idx}")
-                odd_casa_v = st.number_input(f"Odd {tv}", min_value=1.0, step=0.01, key=f"o_v_{idx}")
-                if linha_v > 0 and odd_casa_v > 1:
-                    if proj_v > linha_v: st.write(f"Sua Projeção: +{proj_v - linha_v:.1f} passes")
-
-            with o3:
-                st.info("**Over Total (Ambos)**")
-                linha_jogo = st.number_input("Linha Jogo", min_value=0.0, step=0.5, key=f"l_j_{idx}")
-                odd_casa_j = st.number_input("Odd Jogo", min_value=1.0, step=0.01, key=f"o_j_{idx}")
-
-            # Sinais de Entrada
-            st.markdown("#### 🎯 Sinais de Operação")
-            final1, final2, final3 = st.columns(3)
-            
-            if linha_m > 0:
-                diff_m = proj_m - linha_m
-                if diff_m > 15: final1.success(f"VALOR OVER {tm}")
-                elif diff_m < -15: final1.error(f"VALOR UNDER {tm}")
-
-            if linha_v > 0:
-                diff_v = proj_v - linha_v
-                if diff_v > 15: final2.success(f"VALOR OVER {tv}")
-                elif diff_v < -15: final2.error(f"VALOR UNDER {tv}")
-
-            if linha_jogo > 0:
-                diff_j = exp_total - linha_jogo
-                if diff_j > 20: final3.success("VALOR OVER AMBOS")
-                elif diff_j < -20: final3.error("VALOR UNDER AMBOS")
+            if linha_casa > 0:
+                diff = expectativa_total - linha_casa
+                # Margem de segurança de 15 passes para dar o sinal
+                if diff > 15:
+                    st.success(f"✅ **VALOR PARA OVER:** {diff:.1f} passes acima da linha.")
+                elif diff < -15:
+                    st.error(f"✅ **VALOR PARA UNDER:** {abs(diff):.1f} passes abaixo da linha.")
+                else:
+                    st.warning("⚠️ **LINHA JUSTA:** Pouca margem de valor.")
         else:
-            st.info(f"Aguardando dados na Aba {idx+1}")
+            st.info(f"Preencha os dados dos times na Aba {idx+1} para ver a projeção.")
 
-if st.button("🔄 Resetar Tudo"):
+# Botão Global de Reset
+st.divider()
+if st.button("🔄 Resetar Rodada Inteira"):
     st.rerun()
