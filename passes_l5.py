@@ -3,78 +3,85 @@ import pandas as pd
 
 st.set_page_config(page_title="Scout Passes Automático", layout="wide")
 
-# Link formatado para exportação direta
-URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1WEbxJu6l7FtMCV5o7hUP5VHRZSQNlK5YdAlj63tXjX8/export?format=csv&gid=736210529"
+# ID fixo da sua planilha
+ID_SHEET = "1WEbxJu6l7FtMCV5o7hUP5VHRZSQNlK5YdAlj63tXjX8"
 
 @st.cache_data(ttl=60)
-def carregar_dados(url):
+def carregar_geral():
     try:
-        # Lê o CSV sem pular linhas para mapear tudo
+        url = f"https://docs.google.com/spreadsheets/d/{ID_SHEET}/gviz/tq?tqx=out:csv&sheet=GERAL"
         df = pd.read_csv(url)
-        
-        # O gviz/export às vezes desloca as colunas. 
-        # Vamos buscar as colunas pelos nomes que aparecem na sua tabela original
-        # TIMES está na Coluna B (índice 1), FAVOR na P (índice 15), CONTRA na Q (índice 16)
-        df_resumo = df.iloc[:, [1, 15, 16]].copy()
+        # Pega os 20 times da Premier League (Coluna B, P, Q)
+        df_resumo = df.iloc[4:24, [1, 15, 16]].copy()
         df_resumo.columns = ['Time', 'Faz', 'Leva']
-        
-        # Limpeza Pesada:
-        # 1. Remove linhas onde o nome do time é nulo ou igual a 'TIMES'
-        df_resumo = df_resumo.dropna(subset=['Time'])
-        df_resumo = df_resumo[df_resumo['Time'].astype(str).str.len() > 2] # Remove sujeira
-        df_resumo = df_resumo[df_resumo['Time'] != 'TIMES'] # Remove o cabeçalho
-        
-        # 2. Converte os números (Garante que '474,30' vire '474.30')
-        for col in ['Faz', 'Leva']:
-            df_resumo[col] = df_resumo[col].astype(str).str.replace(',', '.').str.extract(r'(\d+\.?\d*)').astype(float)
-            
-        # 3. Pega apenas os primeiros 20 resultados válidos (Premier League)
-        df_resumo = df_resumo.head(20)
-            
         return df_resumo
-    except Exception as e:
-        st.error(f"Erro na leitura: {e}")
+    except:
         return None
 
-dados = carregar_dados(URL_PLANILHA)
+@st.cache_data(ttl=60)
+def carregar_ultimos_5(nome_time):
+    try:
+        # Tenta ler a aba com o nome exato do time selecionado
+        url_time = f"https://docs.google.com/spreadsheets/d/{ID_SHEET}/gviz/tq?tqx=out:csv&sheet={nome_time}"
+        df = pd.read_csv(url_time)
+        
+        # Na sua aba de time, os jogos geralmente estão nas colunas de 'Passes'
+        # Vamos pegar as últimas 5 linhas preenchidas (considerando que os jogos novos entram embaixo)
+        # Ajuste o índice [[2, 3]] se as colunas de 'Adversário' e 'Passes' forem outras
+        ultimos = df.tail(5).copy()
+        return ultimos
+    except:
+        return None
 
-st.title("🎯 Scout Automático: Premier League")
+dados_gerais = carregar_geral()
 
-if dados is not None and not dados.empty:
-    lista_times = sorted(dados['Time'].unique().tolist())
+if dados_gerais is not None:
+    lista_times = sorted(dados_gerais['Time'].unique().tolist())
+    st.title("🎯 Scout Pro: Médias + Últimos 5 Jogos")
     
-    # Contador visual para conferência
-    qtd = len(lista_times)
-    if qtd < 20:
-        st.warning(f"⚠️ Atenção: Apenas {qtd} times carregados. Verifique se há linhas vazias na planilha.")
-    else:
-        st.success(f"✅ Todos os {qtd} times carregados com sucesso!")
+    abas_jogos = st.tabs([f"Jogo {i}" for i in range(1, 11)])
     
-    abas = st.tabs([f"Jogo {i}" for i in range(1, 11)])
-    
-    for idx, aba in enumerate(abas):
+    for idx, aba in enumerate(abas_jogos):
         with aba:
             c1, c2 = st.columns(2)
+            
+            # --- MANDANTE ---
             with c1:
-                tm = st.selectbox("Selecione o Mandante", lista_times, key=f"tm{idx}")
-                dm = dados[dados['Time'] == tm].iloc[0]
-                st.info(f"📊 {tm} | Faz: {dm['Faz']:.1f} | Leva: {dm['Leva']:.1f}")
-            with c2:
-                tv = st.selectbox("Selecione o Visitante", lista_times, key=f"tv{idx}")
-                dv = dados[dados['Time'] == tv].iloc[0]
-                st.info(f"📊 {tv} | Faz: {dv['Faz']:.1f} | Leva: {dv['Leva']:.1f}")
-            
-            p_m = (dm['Faz'] + dv['Leva']) / 2
-            p_v = (dv['Faz'] + dm['Leva']) / 2
-            
-            st.divider()
-            r1, r2, r3 = st.columns(3)
-            r1.metric(f"Proj. {tm}", f"{p_m:.1f}")
-            r2.metric(f"Proj. {tv}", f"{p_v:.1f}")
-            r3.metric("Total Jogo", f"{p_m + p_v:.1f}")
-else:
-    st.error("Planilha vazia ou link incorreto.")
+                tm = st.selectbox("Mandante", lista_times, key=f"tm{idx}")
+                dm = dados_gerais[dados_gerais['Time'] == tm].iloc[0]
+                st.metric(f"Média {tm}", f"{dm['Faz']:.1f}")
+                
+                st.markdown("##### 🕒 Últimos 5 Jogos (Mandante)")
+                df_5m = carregar_ultimos_5(tm)
+                if df_5m is not None:
+                    st.dataframe(df_5m, use_container_width=True)
+                else:
+                    st.caption("Aba do time não encontrada ou vazia.")
 
-if st.button("🔄 Forçar Sincronização"):
+            # --- VISITANTE ---
+            with c2:
+                tv = st.selectbox("Visitante", lista_times, key=f"tv{idx}")
+                dv = dados_gerais[dados_gerais['Time'] == tv].iloc[0]
+                st.metric(f"Média {tv}", f"{dv['Faz']:.1f}")
+                
+                st.markdown("##### 🕒 Últimos 5 Jogos (Visitante)")
+                df_5v = carregar_ultimos_5(tv)
+                if df_5v is not None:
+                    st.dataframe(df_5v, use_container_width=True)
+                else:
+                    st.caption("Aba do time não encontrada ou vazia.")
+
+            # --- PROJEÇÃO FINAL ---
+            st.divider()
+            proj_m = (dm['Faz'] + dv['Leva']) / 2
+            proj_v = (dv['Faz'] + dm['Leva']) / 2
+            
+            col_res1, col_res2, col_res3 = st.columns(3)
+            col_res1.metric(f"Proj. {tm}", f"{proj_m:.1f}")
+            col_res2.metric(f"Proj. {tv}", f"{proj_v:.1f}")
+            col_res3.metric("Expectativa Total", f"{proj_m + proj_v:.1f}", delta_color="inverse")
+
+st.divider()
+if st.button("🔄 Atualizar Tudo"):
     st.cache_data.clear()
     st.rerun()
