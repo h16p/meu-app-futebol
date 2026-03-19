@@ -13,14 +13,10 @@ ligas_url = {
     'Premier League (Ing)': 'https://www.football-data.co.uk/mmz4281/2526/E0.csv',
     'LaLiga (Esp)': 'https://www.football-data.co.uk/mmz4281/2526/SP1.csv',
     'Serie A (Ita)': 'https://www.football-data.co.uk/mmz4281/2526/I1.csv',
-    'Bundesliga (Ale)': 'https://www.football-data.co.uk/mmz4281/2526/D1.csv'
-}
-    "La Liga (Espanha)": "https://www.football-data.co.uk/mmz4281/2526/SP1.csv",
-    "Ligue 1 (França)": "https://www.football-data.co.uk/mmz4281/2526/F1.csv",
-    "Eredivisie (Holanda)": "https://www.football-data.co.uk/mmz4281/2526/N1.csv",
-    "Primeira Liga (Portugal)": "https://www.football-data.co.uk/mmz4281/2526/P1.csv",
-    "Super Lig (Turquia)": "https://www.football-data.co.uk/mmz4281/2526/T1.csv",
-    "Premiership (Escócia)": "https://www.football-data.co.uk/mmz4281/2526/SC0.csv"
+    'Bundesliga (Ale)': 'https://www.football-data.co.uk/mmz4281/2526/D1.csv',
+    'Ligue 1 (Fra)': 'https://www.football-data.co.uk/mmz4281/2526/F1.csv',
+    'Eredivisie (Hol)': 'https://www.football-data.co.uk/mmz4281/2526/N1.csv',
+    'Portugal (Pri)': 'https://www.football-data.co.uk/mmz4281/2526/P1.csv'
 }
 
 liga_sel = st.selectbox("1. Selecione a Liga", list(ligas_url.keys()))
