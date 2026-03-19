@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import urllib.request
+import requests
 
 # 1. Configuração Inicial
 st.set_page_config(page_title="Scout Automático Real-Time", layout="wide")
@@ -8,31 +8,38 @@ st.set_page_config(page_title="Scout Automático Real-Time", layout="wide")
 # ID da sua planilha Google
 ID_SHEET = "1WEbxJu6l7FtMCV5o7hUP5VHRZSQNlK5YdAlj63tXjX8"
 
-# --- FUNÇÃO PARA EXTRAIR DADOS DO SITE COM DISFARCE (USER-AGENT) ---
+# --- FUNÇÃO DE EXTRAÇÃO COM MÉTODO ANTIBLOQUEIO REFORÇADO ---
 @st.cache_data(ttl=3600)
 def buscar_passes_vivos_fbref():
+    url = "https://fbref.com/en/comps/9/passing/Premier-League-Stats"
+    
+    # Cabeçalhos mais completos para parecer um navegador real
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://google.com"
+    }
+    
     try:
-        url = "https://fbref.com/en/comps/9/passing/Premier-League-Stats"
+        response = requests.get(url, headers=headers, timeout=15)
         
-        # Cria um cabeçalho para o site não bloquear o robô (Erro 403)
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        
-        with urllib.request.urlopen(req) as response:
-            # Lê as tabelas usando o motor 'lxml' que você adicionou no requirements
-            tabelas = pd.read_html(response)
-        
-        df_fbref = tabelas[0]
-        
-        # Limpa os nomes das colunas (FBref usa níveis duplos)
-        df_fbref.columns = [' '.join(col).strip() for col in df_fbref.columns.values]
-        
-        # Seleciona Squad (Coluna 0) e Total Attempted (Coluna 8)
-        df_final = df_fbref.iloc[:, [0, 8]].copy()
-        df_final.columns = ['Time (Site)', 'Passes Tentados (Temporada)']
-        
-        return df_final
+        if response.status_code == 200:
+            # Lê as tabelas do conteúdo HTML retornado
+            tabelas = pd.read_html(response.text)
+            df_fbref = tabelas[0]
+            
+            # Limpa colunas (nível duplo)
+            df_fbref.columns = [' '.join(col).strip() for col in df_fbref.columns.values]
+            
+            # Squad (0) e Total Attempted (8)
+            df_final = df_fbref.iloc[:, [0, 8]].copy()
+            df_final.columns = ['Time (Site)', 'Passes Tentados']
+            return df_final
+        else:
+            return f"Erro {response.status_code}: O site bloqueou o acesso temporariamente."
+            
     except Exception as e:
-        return f"Erro ao acessar o site: {e}"
+        return f"Erro de conexão: {e}"
 
 # --- FUNÇÃO PARA CARREGAR SUA PLANILHA ---
 @st.cache_data(ttl=60)
@@ -40,7 +47,6 @@ def carregar_geral():
     try:
         url = f"https://docs.google.com/spreadsheets/d/{ID_SHEET}/gviz/tq?tqx=out:csv&sheet=GERAL"
         df = pd.read_csv(url)
-        # Pega Times(B), Médias Faz(P) e Leva(Q)
         df_res = df.iloc[4:24, [1, 15, 16]].copy()
         df_res.columns = ['Time', 'Faz', 'Leva']
         for col in ['Faz', 'Leva']:
@@ -52,16 +58,16 @@ def carregar_geral():
 # --- INTERFACE ---
 st.title("🎯 Scout Inteligente: Premier League")
 
-# Barra Lateral
-st.sidebar.header("🔧 Dados em Tempo Real")
-if st.sidebar.button("🔍 Puxar Estatísticas do FBref"):
+st.sidebar.header("🔧 Dados Externos")
+if st.sidebar.button("🔍 Puxar Passes do FBref"):
     with st.sidebar:
-        res_web = buscar_passes_vivos_fbref()
-        if isinstance(res_web, str):
-            st.error(res_web)
+        res = buscar_passes_vivos_fbref()
+        if isinstance(res, str):
+            st.error(res)
+            st.info("Dica: O site do FBref limita acessos. Tente novamente em alguns minutos.")
         else:
             st.success("Dados carregados!")
-            st.dataframe(res_web, hide_index=True)
+            st.dataframe(res, hide_index=True)
 
 dados_gerais = carregar_geral()
 
@@ -90,6 +96,6 @@ if dados_gerais is not None:
             r2.metric(f"Proj. {tv}", f"{p_v:.1f}")
             r3.metric("Total Jogo", f"{p_m + p_v:.1f}")
 
-if st.button("🔄 Atualizar Tudo"):
+if st.button("🔄 Atualizar Cache"):
     st.cache_data.clear()
     st.rerun()
